@@ -1,24 +1,23 @@
-; ==========================================
-; pmtest2.asm
-; 编译方法：nasm pmtest2.asm -o pmtest2.com
-; ==========================================
-
 %include	"pm.inc"	; 常量, 宏, 以及一些说明
+
+PageDirBase		equ	200000h	; 页目录开始地址: 2M
+PageTblBase		equ	201000h	; 页表开始地址: 2M+4K
 
 org	0100h
 	jmp	LABEL_BEGIN
 
 [SECTION .gdt]
 ; GDT
-;                            段基址,        段界限 , 属性
-LABEL_GDT:         Descriptor    0,              0, 0         ; 空描述符
-LABEL_DESC_NORMAL: Descriptor    0,         0ffffh, DA_DRW    ; Normal 描述符
-LABEL_DESC_CODE32: Descriptor    0, SegCode32Len-1, DA_C+DA_32; 非一致代码段, 32
-LABEL_DESC_CODE16: Descriptor    0,         0ffffh, DA_C      ; 非一致代码段, 16
-LABEL_DESC_DATA:   Descriptor    0,      DataLen-1, DA_DRW    ; Data
-LABEL_DESC_STACK:  Descriptor    0,     TopOfStack, DA_DRWA+DA_32; Stack, 32 位
-LABEL_DESC_TEST:   Descriptor 0500000h,     0ffffh, DA_DRW
-LABEL_DESC_VIDEO:  Descriptor  0B8000h,     0ffffh, DA_DRW    ; 显存首地址
+;                            段基址,       段界限, 属性
+LABEL_GDT:           Descriptor 0,              0, 0     		; 空描述符
+LABEL_DESC_NORMAL:   Descriptor 0,         0ffffh, DA_DRW		; Normal 描述符
+LABEL_DESC_PAGE_DIR: Descriptor PageDirBase, 4095, DA_DRW;Page Directory
+LABEL_DESC_PAGE_TBL: Descriptor PageTblBase, 1023, DA_DRW|DA_LIMIT_4K;Page Tables
+LABEL_DESC_CODE32:   Descriptor 0, SegCode32Len-1, DA_C+DA_32		; 非一致代码段, 32
+LABEL_DESC_CODE16:   Descriptor 0,         0ffffh, DA_C			; 非一致代码段, 16
+LABEL_DESC_DATA:     Descriptor 0,      DataLen-1, DA_DRW		; Data
+LABEL_DESC_STACK:    Descriptor 0,     TopOfStack, DA_DRWA + DA_32	; Stack, 32 位
+LABEL_DESC_VIDEO:    Descriptor 0B8000h,   0ffffh, DA_DRW		; 显存首地址
 ; GDT 结束
 
 GdtLen		equ	$ - LABEL_GDT	; GDT长度
@@ -27,11 +26,12 @@ GdtPtr		dw	GdtLen - 1	; GDT界限
 
 ; GDT 选择子
 SelectorNormal		equ	LABEL_DESC_NORMAL	- LABEL_GDT
+SelectorPageDir		equ	LABEL_DESC_PAGE_DIR	- LABEL_GDT
+SelectorPageTbl		equ	LABEL_DESC_PAGE_TBL	- LABEL_GDT
 SelectorCode32		equ	LABEL_DESC_CODE32	- LABEL_GDT
 SelectorCode16		equ	LABEL_DESC_CODE16	- LABEL_GDT
 SelectorData		equ	LABEL_DESC_DATA		- LABEL_GDT
 SelectorStack		equ	LABEL_DESC_STACK	- LABEL_GDT
-SelectorTest		equ	LABEL_DESC_TEST		- LABEL_GDT
 SelectorVideo		equ	LABEL_DESC_VIDEO	- LABEL_GDT
 ; END of [SECTION .gdt]
 
@@ -41,10 +41,8 @@ ALIGN	32
 LABEL_DATA:
 SPValueInRealMode	dw	0
 ; 字符串
-PMMessage:		db	"In Protect Mode now. ^-^", 0	; 在保护模式中显示
+PMMessage:		db	"In Protect Mode now. ^-^", 0	; 进入保护模式后显示此字符串
 OffsetPMMessage		equ	PMMessage - $$
-StrTest:		db	"ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0
-OffsetStrTest		equ	StrTest - $$
 DataLen			equ	$ - LABEL_DATA
 ; END of [SECTION .data1]
 
@@ -149,14 +147,14 @@ LABEL_REAL_ENTRY:		; 从保护模式跳回到实模式就到了这里
 
 	mov	sp, [SPValueInRealMode]
 
-	in	al, 92h		; `.
-	and	al, 11111101b	;  | 关闭 A20 地址线
-	out	92h, al		; /
+	in	al, 92h		; ┓
+	and	al, 11111101b	; ┣ 关闭 A20 地址线
+	out	92h, al		; ┛
 
 	sti			; 开中断
 
-	mov	ax, 4c00h	; `.
-	int	21h		; /  回到 DOS
+	mov	ax, 4c00h	; ┓
+	int	21h		; ┛回到 DOS
 ; END of [SECTION .s16]
 
 
@@ -164,10 +162,10 @@ LABEL_REAL_ENTRY:		; 从保护模式跳回到实模式就到了这里
 [BITS	32]
 
 LABEL_SEG_CODE32:
+	call	SetupPaging
+
 	mov	ax, SelectorData
 	mov	ds, ax			; 数据段选择子
-	mov	ax, SelectorTest
-	mov	es, ax			; 测试段选择子
 	mov	ax, SelectorVideo
 	mov	gs, ax			; 视频段选择子
 
@@ -193,112 +191,48 @@ LABEL_SEG_CODE32:
 	jmp	.1
 .2:	; 显示完毕
 
-	call	DispReturn
-
-	call	TestRead
-	call	TestWrite
-	call	TestRead
-
 	; 到此停止
 	jmp	SelectorCode16:0
 
-; ------------------------------------------------------------------------
-TestRead:
-	xor	esi, esi
-	mov	ecx, 8
-.loop:
-	mov	al, [es:esi]
-	call	DispAL
-	inc	esi
-	loop	.loop
+; 启动分页机制 --------------------------------------------------------------
+SetupPaging:
+	; 为简化处理, 所有线性地址对应相等的物理地址.
 
-	call	DispReturn
-
-	ret
-; TestRead 结束-----------------------------------------------------------
-
-
-; ------------------------------------------------------------------------
-TestWrite:
-	push	esi
-	push	edi
-	xor	esi, esi
+	; 首先初始化页目录
+	mov	ax, SelectorPageDir	; 此段首地址为 PageDirBase
+	mov	es, ax
+	mov	ecx, 1024		; 共 1K 个表项
 	xor	edi, edi
-	mov	esi, OffsetStrTest	; 源数据偏移
-	cld
+	xor	eax, eax
+	mov	eax, PageTblBase | PG_P  | PG_USU | PG_RWW
 .1:
-	lodsb
-	test	al, al
-	jz	.2
-	mov	[es:edi], al
-	inc	edi
-	jmp	.1
+	stosd
+	add	eax, 4096		; 为了简化, 所有页表在内存中是连续的.
+	loop	.1
+
+	; 再初始化所有页表 (1K 个, 4M 内存空间)
+	mov	ax, SelectorPageTbl	; 此段首地址为 PageTblBase
+	mov	es, ax
+	mov	ecx, 1024 * 1024	; 共 1M 个页表项, 也即有 1M 个页
+	xor	edi, edi
+	xor	eax, eax
+	mov	eax, PG_P  | PG_USU | PG_RWW
 .2:
+	stosd
+	add	eax, 4096		; 每一页指向 4K 的空间
+	loop	.2
 
-	pop	edi
-	pop	esi
-
-	ret
-; TestWrite 结束----------------------------------------------------------
-
-
-; ------------------------------------------------------------------------
-; 显示 AL 中的数字
-; 默认地:
-;	数字已经存在 AL 中
-;	edi 始终指向要显示的下一个字符的位置
-; 被改变的寄存器:
-;	ax, edi
-; ------------------------------------------------------------------------
-DispAL:
-	push	ecx
-	push	edx
-
-	mov	ah, 0Ch			; 0000: 黑底    1100: 红字
-	mov	dl, al
-	shr	al, 4
-	mov	ecx, 2
-.begin:
-	and	al, 01111b
-	cmp	al, 9
-	ja	.1
-	add	al, '0'
-	jmp	.2
-.1:
-	sub	al, 0Ah
-	add	al, 'A'
-.2:
-	mov	[gs:edi], ax
-	add	edi, 2
-
-	mov	al, dl
-	loop	.begin
-	add	edi, 2
-
-	pop	edx
-	pop	ecx
+	mov	eax, PageDirBase
+	mov	cr3, eax
+	mov	eax, cr0
+	or	eax, 80000000h
+	mov	cr0, eax
+	jmp	short .3
+.3:
+	nop
 
 	ret
-; DispAL 结束-------------------------------------------------------------
-
-
-; ------------------------------------------------------------------------
-DispReturn:
-	push	eax
-	push	ebx
-	mov	eax, edi
-	mov	bl, 160
-	div	bl
-	and	eax, 0FFh
-	inc	eax
-	mov	bl, 160
-	mul	bl
-	mov	edi, eax
-	pop	ebx
-	pop	eax
-
-	ret
-; DispReturn 结束---------------------------------------------------------
+; 分页机制启动完毕 ----------------------------------------------------------
 
 SegCode32Len	equ	$ - LABEL_SEG_CODE32
 ; END of [SECTION .s32]
@@ -318,7 +252,7 @@ LABEL_SEG_CODE16:
 	mov	ss, ax
 
 	mov	eax, cr0
-	and	al, 11111110b
+	and	eax, 7FFFFFFEh		; PE=0, PG=0
 	mov	cr0, eax
 
 LABEL_GO_BACK_TO_REAL:
