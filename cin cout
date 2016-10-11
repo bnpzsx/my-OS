@@ -1,0 +1,12 @@
+#include<iostream>
+using namespace std;
+char a;
+int main(){
+while(1)
+{
+	cin>>a;
+	
+cout<<a<<'\t'<<a<<endl;
+	
+	}
+}
