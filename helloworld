@@ -2,5 +2,6 @@
 using namespace std;
 int main()
 {
-	cout<<'/\－272855759'<<'/a'<<'/\0'<<endl;
+char a='1abcdefgs';
+cout<<a;
 	}
