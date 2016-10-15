@@ -1,0 +1,9 @@
+#include<iostream>
+using namespace std;
+int main() {
+int a=3,b=1,c=0,d=10;
+cout<<'12'<<endl;
+char *x;
+*x=12594;
+cout<<*x;
+}
