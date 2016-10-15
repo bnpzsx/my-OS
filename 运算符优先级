@@ -1,0 +1,15 @@
+#include<iostream>
+using namespace std;
+char a;
+void bnp(void);
+int main() {
+int a=3,b=1,c=0,d=10;
+c=a+++ ++b;
+cout<<a<<'\t'<<b<<'\t'<<c<<'\t'<<d<<endl;
+//  bnp;
+//cout << "学" << '\n';
+}
+void bnp(void)  {
+  cout << "物理学史";
+  cin >> a;
+}
