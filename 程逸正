@@ -1,0 +1,39 @@
+#include <studio>
+int main(void)
+{
+  char str[100];
+  int  i = 0;
+  int  len = 0;
+
+  /* clear the string */
+  for( i=0; i < 100; i++)
+  {
+      str[i] = 0;
+  }
+
+  /* get a string from the console */
+  scanf("%s", str);
+
+  /* get the length of the string */
+  for( i = 0;  i < 100; i ++)
+  {
+       if( str[i] == 0)
+       {
+           break;
+       }
+  }
+
+  len = i + 1;
+
+  /* Low to Upper */ 
+  for( i = 0;  i < len; i ++ )
+  {
+     if( str[i] >= 'a' && str[i] <="z")
+     {
+         str[i] = str[i] + 'A' - 'a';
+     }
+  }
+
+  printf("%s\n", str);
+  return 0;
+}
