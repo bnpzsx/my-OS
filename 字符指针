@@ -1,0 +1,8 @@
+#include<iostream>
+using namespace std;
+char a;
+void bnp(void);
+int main() {
+char *a = "a好得很#三年bc";
+cout<<a;
+}
