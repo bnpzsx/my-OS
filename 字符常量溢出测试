@@ -2,8 +2,11 @@
 using namespace std;
 int main() {
 int a=3,b=1,c=0,d=10;
-cout<<'12'<<endl;
+cout<<'\\\\'<<endl;//从右往左
+cout<<int("6")<<endl;
+cout<<int('\\\\');
 char *x;
-*x=12594;
+*x=5770417 ;//疑似字符常量区地址，内存中似乎有人256*256个单元来存放字符常量，因为发现他们在内存中以256为周期循环！ascii码*16*16+ascii即为它在内存中地址
+//貌似输出的是ASCII码对应的字符
 cout<<*x;
 }
