@@ -1,0 +1,16 @@
+#include<iostream>
+using namespace std;
+int main()
+{
+int a,i=1,num=0;
+cin>>a;
+q:
+ num=num+i;
+ i++;
+ if (i<=a)goto q;
+ else goto w;
+ w:
+ cout<<num<<endl;
+ 
+
+}
