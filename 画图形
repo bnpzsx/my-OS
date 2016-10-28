@@ -4,13 +4,14 @@ using namespace std;
 int main()
 {
 int i,j,n,x;
-cout<<"输入0为直角三角形，非零为正方形；以及行数";
+cout<<"输入0为直角三角形，1为平行四边形,其他为正方形";
 cin>>x;
+cout<<'\n'<<"以及行数";
 cin>>n;//列59*47
-for(i=1;i<=(43-n)/2;i++)cout<<'\n';
+for(i=1;i<=(41-n)/2;i++)cout<<'\n';
 for(i=1;i<=n;i++)
 {
-cout<<setw((59-n)/2)<<' ';
+cout<<setw((59-(x-1?n:(2*n)))/2+(x-1?0:(n-i)))<<' ';
 for(j=1;j<=(x?n:i);j++)cout<<'*';
 cout<<endl;
 }
